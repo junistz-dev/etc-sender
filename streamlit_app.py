@@ -1,151 +1,140 @@
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
+from PIL import Image
+from function import (encrypt_image, compress_image, generate_secret_key)
+import os
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+download_ready = False
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Center align the title using HTML/CSS and make "Sender" a lighter yellow
+st.markdown("""
+    <h1 style='text-align: center;'>
+        ETC <span style='color: #FFFF99;'>Sender</span> Application
+    </h1>
+    """,
+            unsafe_allow_html=True)
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# Load and display the local image
+image = Image.open("Sender Image.png")
+st.image(image, use_column_width=True)
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+# Add description of the application
+st.write("""
+    This application allows users to upload a TIF/TIFF image and download the processed TXT file. 
+    You simply need to upload your image, and the application will extract the relevant text data from the image file, 
+    which can then be downloaded as a text file for further use.
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+    **We recommend that TIFF files should not exceed 50MB.**  
+    Larger files may take a significant amount of time to encrypt, and if a TIFF file exceeds 50MB, 
+    the compressed text file could become extremely large, making it difficult for the receiver to decompress 
+    and attach the file.
+    """)
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+# Create columns for buttons
+col1, col2, col3 = st.columns(3)
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
+# Button for downloading the sample dataset
+with col1:
+    if st.button("Download Sample Dataset"):
+        st.markdown(
+            "[Click here to download the sample dataset](https://drive.google.com/drive/folders/115FN6YJLhMjPrILJbL7XKhfoonbABLAz?usp=share_link)"
         )
+
+# Button for JPEG to TIFF converter
+with col2:
+    if st.button("Go to JPEG to TIFF Converter"):
+        st.markdown(
+            "[Click here to convert JPEG to TIFF](https://cloudconvert.com/jpeg-to-tiff)"
+        )
+
+# Button for resizing TIFF images
+with col3:
+    if st.button("  Go to TIFF Resizer"):
+        st.markdown(
+            "[Click here to resize TIFF images](https://www.xconvert.com/resize-tiff)"
+        )
+
+download_ready = False
+
+compressed_file_data = None
+
+with st.form("my_form", clear_on_submit=True):
+    uploaded_files = st.file_uploader("Upload a TIF image",
+                                      type=["tif", "tiff"])
+
+    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB in bytes
+    BLOCK_SIZE = 8
+    SECRET_KEY = generate_secret_key()[1]
+    submitted = st.form_submit_button("Submit")
+
+    if submitted:
+        if uploaded_files is None:
+            st.error("No file uploaded. Please upload a TIF file.")
+        else:
+            # Check the file size
+            if uploaded_files.size > MAX_FILE_SIZE:
+                st.error(
+                    f"The uploaded file exceeds the 50MB size limit. Please upload a smaller file."
+                )
+            else:
+                # Proceed with image processing if file size is within the limit
+                original_size = uploaded_files.size  # Original file size in bytes
+                image = Image.open(uploaded_files)
+
+            # Check if the image dimensions are divisible by BLOCK_SIZE
+            if image.width % BLOCK_SIZE != 0 or image.height % BLOCK_SIZE != 0:
+                st.error(
+                    f"The dimensions of this image ({image.width}x{image.height}) are not properly adjusted. "
+                    f"Please resize the image to dimensions divisible by 8 and try again."
+                )
+
+            else:
+                scrambled_y_image, secret_key_str = encrypt_image(
+                    image, BLOCK_SIZE, SECRET_KEY)
+
+                # Show the encrypted image
+                st.image(scrambled_y_image,
+                         caption="Encrypted Image",
+                         use_column_width=True)
+
+                # Perform compression
+                compressed_file_path = compress_image(scrambled_y_image, '.')
+
+                # Get the size of the encrypted and compressed file
+                encrypted_image_size = scrambled_y_image.size  # Size after encryption
+                compressed_file_size = os.path.getsize(
+                    compressed_file_path)  # Compressed file size in bytes
+
+                # Display size information
+                st.write(f"Original File Size: {original_size / 1024:.2f} KB")
+                st.write(
+                    f"Encrypted Image Size: {encrypted_image_size[0]}x{encrypted_image_size[1]}"
+                )
+                st.write(
+                    f"Compressed File Size: {compressed_file_size / 1024:.2f} KB"
+                )
+
+                # Display the secret key centered
+                st.markdown(
+                    f"<div style='text-align: center; font-size: 20px;'>Secret Key: {secret_key_str}</div>",
+                    unsafe_allow_html=True)
+
+                # Display warning message
+                st.warning(
+                    "This Secret Key will only be displayed at the time of downloading the encrypted image. Please make sure to write it down somewhere else!"
+                )
+
+                with open(compressed_file_path, "rb") as file:
+                    compressed_file_data = file.read()
+
+                download_ready = True  # Set download readiness status
+
+if download_ready and compressed_file_data is not None:
+    # Display download button only when the file is ready
+    download_button_clicked = st.download_button(
+        label="Download Encrypted Data",
+        data=compressed_file_data,
+        file_name="compressed_data.txt",
+        mime="text/plain")
+
+    if download_button_clicked:  # When the download button is clicked
+        st.success("Download was successful!")
