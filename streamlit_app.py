@@ -8,7 +8,7 @@ download_ready = False
 # Center align the title using HTML/CSS and make "Sender" a lighter yellow
 st.markdown("""
     <h1 style='text-align: center;'>
-        ETC <span style='color: #FFFF99;'>Sender</span> Application
+        ETC <span style='color: #D7DB2C;'>Sender</span> Application
     </h1>
     """,
             unsafe_allow_html=True)
